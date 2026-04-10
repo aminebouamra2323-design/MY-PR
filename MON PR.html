@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Shop Pro Full</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    color:white;
+    background:#111;
+}
+
+/* HEADER */
+.header{
+    background:linear-gradient(90deg,#ff0066,#6600ff);
+    padding:10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+/* BUTTON */
+button{
+    padding:8px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#ff0066;
+    color:white;
+}
+
+/* PRODUCTS */
+.container{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    padding:20px;
+}
+
+.product{
+    background:#1c1c1c;
+    margin:10px;
+    width:200px;
+    border-radius:10px;
+    text-align:center;
+    overflow:hidden;
+}
+
+.product img{
+    width:100%;
+    height:150px;
+    object-fit:cover;
+}
+
+/* CART */
+.cart{
+    position:fixed;
+    top:0;
+    right:0;
+    width:300px;
+    height:100%;
+    background:#000;
+    border-left:2px solid #ff0066;
+    transform:translateX(100%);
+    transition:0.3s;
+    padding:40px 10px 10px 10px;
+    z-index:9999;
+    overflow:auto;
+}
+
+.cart.open{ transform:translateX(0); }
+
+.item{
+    display:flex;
+    justify-content:space-between;
+    border-bottom:1px solid #333;
+    padding:5px;
+}
+
+/* CLOSE BUTTON INSIDE CART */
+.closeCartBtn{
+    position:absolute;
+    top:10px;
+    right:10px;
+    background:#444;
+}
+
+/* OVERLAY */
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    display:none;
+    z-index:9998;
+}
+
+.overlay.show{ display:block; }
+
+/* PANEL */
+.panel{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:#000;
+    border:2px solid #ff0066;
+    padding:15px;
+    width:280px;
+    display:none;
+    z-index:10000;
+}
+
+input{
+    width:100%;
+    margin:5px 0;
+    padding:6px;
+}
+
+/* BADGE */
+.badge{
+    background:red;
+    border-radius:50%;
+    padding:2px 6px;
+    font-size:12px;
+}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+    .product{ width:45%; }
+    .cart{ width:100%; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div>🎌 MINI SHOP</div>
+    <div>
+        <button onclick="toggleCart()">🛒 <span class="badge" id="badge">0</span></button>
+        <button onclick="openLogin()">Admin</button>
+    </div>
+</div>
+
+<!-- PRODUCTS -->
+<div class="container" id="products"></div>
+
+<!-- CART -->
+<div class="cart" id="cart">
+    <button class="closeCartBtn" onclick="closeCart()">✖</button>
+
+    <h3>Cart</h3>
+    <div id="cartItems"></div>
+    <h4 id="total">Total: 0 DH</h4>
+    <button onclick="clearCart()" style="background:#444;width:100%;">Clear</button>
+</div>
+
+<div class="overlay" onclick="closeCart()"></div>
+
+<!-- LOGIN -->
+<div class="panel" id="loginPanel">
+    <h3>Admin Login 🔐</h3>
+
+    <input id="user" placeholder="Username">
+    <input id="pass" type="password" placeholder="Password">
+
+    <button onclick="login()">Login</button>
+    <button onclick="closeLogin()" style="background:red;">Close</button>
+</div>
+
+<!-- ADMIN -->
+<div class="panel" id="adminPanel">
+    <h3>Admin Panel ⚙️</h3>
+
+    <input id="name" placeholder="Name">
+    <input id="price" placeholder="Price">
+    <input id="imgFile" type="file" accept="image/*">
+
+    <button onclick="addProduct()">Add</button>
+    <button onclick="logout()" style="background:#444;">Logout</button>
+
+    <hr>
+    <div id="adminList"></div>
+</div>
+
+<script>
+
+let products = JSON.parse(localStorage.getItem("products")) || [
+    {id:1,name:"Naruto T-shirt",price:120,img:"https://via.placeholder.com/200"},
+    {id:2,name:"One Piece Hoodie",price:250,img:"https://via.placeholder.com/200"}
+];
+
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function save(){
+    localStorage.setItem("products",JSON.stringify(products));
+    localStorage.setItem("cart",JSON.stringify(cart));
+}
+
+window.onload=()=>{
+    renderProducts();
+    renderCart();
+    renderAdmin();
+};
+
+/* PRODUCTS */
+function renderProducts(){
+    let box=document.getElementById("products");
+    box.innerHTML="";
+
+    products.forEach(p=>{
+        box.innerHTML+=`
+        <div class="product">
+            <img src="${p.img}">
+            <h4>${p.name}</h4>
+            <p>${p.price} DH</p>
+            <button onclick="addCart(${p.id})">Add</button>
+        </div>`;
+    });
+}
+
+/* CART */
+function addCart(id){
+    let p=products.find(x=>x.id===id);
+    let e=cart.find(x=>x.id===id);
+
+    if(e) e.qty++;
+    else cart.push({...p,qty:1});
+
+    save();
+    renderCart();
+}
+
+function removeOne(id){
+    let item = cart.find(x=>x.id===id);
+    if(!item) return;
+
+    item.qty--;
+    if(item.qty<=0){
+        cart = cart.filter(x=>x.id!==id);
+    }
+
+    save();
+    renderCart();
+}
+
+function renderCart(){
+    let box=document.getElementById("cartItems");
+    box.innerHTML="";
+
+    let total=0;
+    let count=0;
+
+    cart.forEach(p=>{
+        total+=p.price*p.qty;
+        count+=p.qty;
+
+        box.innerHTML+=`
+        <div class="item">
+            <span>${p.name} x${p.qty}</span>
+            <span>
+                ${p.price*p.qty} DH
+                <button onclick="removeOne(${p.id})" style="background:#444;margin-left:5px;">-</button>
+            </span>
+        </div>`;
+    });
+
+    document.getElementById("total").innerText="Total: "+total+" DH";
+    document.getElementById("badge").innerText=count;
+}
+
+function clearCart(){
+    cart=[];
+    save();
+    renderCart();
+}
+
+/* CART UI */
+function toggleCart(){
+    document.getElementById("cart").classList.toggle("open");
+    document.querySelector(".overlay").classList.toggle("show");
+}
+
+function closeCart(){
+    document.getElementById("cart").classList.remove("open");
+    document.querySelector(".overlay").classList.remove("show");
+}
+
+/* LOGIN */
+function openLogin(){
+    document.getElementById("loginPanel").style.display="block";
+}
+
+function closeLogin(){
+    document.getElementById("loginPanel").style.display="none";
+}
+
+function login(){
+    let u=document.getElementById("user").value;
+    let p=document.getElementById("pass").value;
+
+    if(u==="admin" && p==="1234amine"){
+        document.getElementById("loginPanel").style.display="none";
+        document.getElementById("adminPanel").style.display="block";
+        renderAdmin();
+    }else{
+        alert("Wrong ❌");
+    }
+}
+
+function logout(){
+    document.getElementById("adminPanel").style.display="none";
+}
+
+/* ADD PRODUCT WITH FILE */
+function addProduct(){
+    let n=document.getElementById("name").value;
+    let p=Number(document.getElementById("price").value);
+    let file=document.getElementById("imgFile").files[0];
+
+    if(!n || isNaN(p)) return;
+
+    if(file){
+        let reader=new FileReader();
+
+        reader.onload=function(e){
+            products.push({
+                id:Date.now(),
+                name:n,
+                price:p,
+                img:e.target.result
+            });
+
+            save();
+            renderProducts();
+            renderAdmin();
+        };
+
+        reader.readAsDataURL(file);
+    }else{
+        products.push({
+            id:Date.now(),
+            name:n,
+            price:p,
+            img:"https://via.placeholder.com/200"
+        });
+
+        save();
+        renderProducts();
+        renderAdmin();
+    }
+}
+
+/* ADMIN LIST */
+function renderAdmin(){
+    let box=document.getElementById("adminList");
+    box.innerHTML="";
+
+    products.forEach(p=>{
+        box.innerHTML+=`
+        <div>
+            ${p.name} - ${p.price} DH
+            <button onclick="del(${p.id})" style="background:red;">X</button>
+        </div>`;
+    });
+}
+
+function del(id){
+    products = products.filter(p=>p.id!==id);
+    save();
+    renderProducts();
+    renderAdmin();
+}
+
+</script>
+
+</body>
+</html>
